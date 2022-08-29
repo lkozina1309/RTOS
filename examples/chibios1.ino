@@ -5,41 +5,41 @@ static THD_WORKING_AREA(waTH1,100);
 static THD_WORKING_AREA(waTH2,100);
 
 struct threadData{
-  int _blinkTime;
+  int _blinkingTime;
   int _lightPin;
-  int _fadeTime;
+  int _fadingTime;
 };
 
 static THD_FUNCTION (blinkerThread, arg){
   threadData *thisData = (threadData*)arg;
   int lightPin = thisData->_lightPin;
-  int blinkTime = thisData->_blinkTime;
+  int blinkingTime = thisData->_blinkingTime;
 
   pinMode(lightPin, OUTPUT);
 
   while(1){
     digitalWrite(lightPin, HIGH);
-    chThdSleep(blinkTime);
+    chThdSleep(blinkingTime);
     digitalWrite(lightPin, LOW);
-    chThdSleep(blinkTime);
+    chThdSleep(blinkingTime);
   }
 }
 
 static THD_FUNCTION (fadeThread, arg){
   threadData *thisData = (threadData*)arg;
   int lightPin = thisData->_lightPin;
-  int fadeTime = thisData->_fadeTime;
+  int fadingTime = thisData->_fadingTime;
 
   pinMode(lightPin, OUTPUT);
   while(1){
 
     for(int i = 0; i < 255; i+=5){
       analogWrite(lightPin, i);
-      chThdSleep(fadeTime);
+      chThdSleep(fadingTime);
     }
     for(int i = 255; i > 0; i-=5){
       analogWrite(lightPin, i);
-      chThdSleep(fadeTime);
+      chThdSleep(fadingTime);
     }
   }
 }
@@ -57,11 +57,11 @@ void setup() {
 void chSetup() {
   threadData set1;
   set1._lightPin = 13;
-  set1._blinkTime = 300;
+  set1._blinkingTime = 300;
 
   threadData set2;
   set2._lightPin = 20;
-  set2._fadeTime = 10;
+  set2._fadingTime = 10;
 
 
   //schedule thread 2 
