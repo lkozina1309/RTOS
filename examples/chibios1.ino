@@ -1,4 +1,3 @@
-
 #include <ChibiOS_ARM.h>
 
 static THD_WORKING_AREA(waTH1,100);
