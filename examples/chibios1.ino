@@ -1,80 +1,69 @@
-#include <ChibiOS_ARM.h>
+#include <ChibiOS_AVR.h>
 
-static THD_WORKING_AREA(waTH1,100);
-static THD_WORKING_AREA(waTH2,100);
+// The LED is attached to pin 13 on Arduino.
+const uint8_t LED_PIN = 13;
 
-struct threadData{
-  int _blinkingTime;
-  int _lightPin;
-  int _fadingTime;
-};
+// Declare a semaphore with an inital counter value of zero.
+SEMAPHORE_DECL(sem, 0);
+//------------------------------------------------------------------------------
+// Thread 1, turn the LED off when signalled by thread 2.
 
-static THD_FUNCTION (blinkerThread, arg){
-  threadData *thisData = (threadData*)arg;
-  int lightPin = thisData->_lightPin;
-  int blinkingTime = thisData->_blinkingTime;
+// 64 byte stack beyond task switch and interrupt needs
+static THD_WORKING_AREA(waThread1, 64);
 
-  pinMode(lightPin, OUTPUT);
+static THD_FUNCTION(Thread1, arg) {
 
-  while(1){
-    digitalWrite(lightPin, HIGH);
-    chThdSleep(blinkingTime);
-    digitalWrite(lightPin, LOW);
-    chThdSleep(blinkingTime);
+  while (!chThdShouldTerminateX()) {
+    // Wait for signal from thread 2.
+    chSemWait(&sem);
+
+    // Turn LED off.
+    digitalWrite(LED_PIN, LOW);
   }
 }
+//------------------------------------------------------------------------------
+// Thread 2, turn the LED on and signal thread 1 to turn the LED off.
 
-static THD_FUNCTION (fadeThread, arg){
-  threadData *thisData = (threadData*)arg;
-  int lightPin = thisData->_lightPin;
-  int fadingTime = thisData->_fadingTime;
+// 64 byte stack beyond task switch and interrupt needs
+static THD_WORKING_AREA(waThread2, 64);
 
-  pinMode(lightPin, OUTPUT);
-  while(1){
+static THD_FUNCTION(Thread2, arg) {
+  pinMode(LED_PIN, OUTPUT);
+  while (1) {
+    digitalWrite(LED_PIN, HIGH);
 
-    for(int i = 0; i < 255; i+=5){
-      analogWrite(lightPin, i);
-      chThdSleep(fadingTime);
-    }
-    for(int i = 255; i > 0; i-=5){
-      analogWrite(lightPin, i);
-      chThdSleep(fadingTime);
-    }
+    // Sleep for 200 milliseconds.
+    chThdSleepMilliseconds(200);
+
+    // Signal thread 1 to turn LED off.
+    chSemSignal(&sem);
+
+    // Sleep for 200 milliseconds.
+    chThdSleepMilliseconds(200);
   }
 }
-
+//------------------------------------------------------------------------------
 void setup() {
-  // initialize and start ChibiOS
+
   chBegin(chSetup);
-  
-  // should not return
-  while(1);
-}
-
-
-//------------------------------------------------------------------------------
-void chSetup() {
-  threadData set1;
-  set1._lightPin = 13;
-  set1._blinkingTime = 300;
-
-  threadData set2;
-  set2._lightPin = 20;
-  set2._fadingTime = 10;
-
-
-  //schedule thread 2 
-  chThdCreateStatic(waTh1, sizeof(waTh1), NORMALPRIO, blinkerThread, (void*)&set1);
-
-  //schedule thread 3 (fading)
-  chThdCreateStatic(waTh2, sizeof(waTh2), NORMALPRIO, fadeThread, (void*)&set2);
-
-
-
-  while(1){
-    chThdSleep(10000);
+  // chBegin never returns, main thread continues with mainThread()
+  while(1) {
   }
 }
 //------------------------------------------------------------------------------
-void loop() {/* not used */}
+// main thread runs at NORMALPRIO
+void chSetup() {
+
+  // start blink thread
+  chThdCreateStatic(waThread1, sizeof(waThread1),
+    NORMALPRIO + 2, Thread1, NULL);
+
+  chThdCreateStatic(waThread2, sizeof(waThread2),
+    NORMALPRIO + 1, Thread2, NULL);
+
+}
+//------------------------------------------------------------------------------
+void loop() {
+  // not used
+}
 
